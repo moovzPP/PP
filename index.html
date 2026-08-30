@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>포트폴리오 현황</title>
+<link rel="icon" href="data:,">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #12161d;
+    color: #F2F0EA;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+  #app { max-width: 880px; margin: 0 auto; padding: 28px 18px 64px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  .brandRow { display: flex; align-items: center; gap: 12px; }
+  .seal { width: 40px; height: 40px; border-radius: 50%; background: #E5484D; color: #12161d; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; flex-shrink: 0; }
+  h1 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+  .subtitle { font-size: 13px; color: #8a93a3; margin: 2px 0 0; }
+  button { cursor: pointer; }
+  .refreshBtn { background: #1C222B; border: 1px solid #2A313C; color: #F2F0EA; padding: 9px 16px; border-radius: 8px; font-size: 13px; }
+  .errorBox { background: #2a171a; border: 1px solid #5c2a2f; color: #f2c9cc; border-radius: 10px; padding: 16px; margin-bottom: 18px; font-size: 14px; }
+  .heroCard { background: #1C222B; border: 1px solid #2A313C; border-radius: 16px; padding: 22px 22px 20px; margin-bottom: 22px; }
+  .heroLabel { font-size: 13px; color: #8a93a3; }
+  .heroValue { font-size: 34px; font-weight: 800; margin-top: 6px; letter-spacing: -0.02em; }
+  .syncTime { font-size: 12px; color: #5f6773; margin-top: 6px; }
+  .statRow { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .statChip { background: #12161d; border: 1px solid #2A313C; border-radius: 10px; padding: 10px 14px; flex: 1 1 140px; }
+  .statLabel { font-size: 11.5px; color: #8a93a3; margin-bottom: 4px; }
+  .statValue { font-size: 16px; font-weight: 700; }
+  .cashRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; background: #12161d; border: 1px solid #2A313C; border-radius: 10px; padding: 10px 14px; }
+  .cashLabel { font-size: 13px; color: #c7cdd6; }
+  .cashInput { background: transparent; border: none; border-bottom: 1px solid #2A313C; color: #F2F0EA; font-size: 14px; text-align: right; padding: 4px 2px; width: 160px; outline: none; }
+  .compBar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; margin-top: 18px; background: #262d38; }
+  .legendRow { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 14px; }
+  .legendItem { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+  .legendDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .legendLabel { color: #c7cdd6; }
+  .legendPct { color: #8a93a3; }
+  .sectionCard { background: #1C222B; border: 1px solid #2A313C; border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
+  .sectionHeader { width: 100%; display: flex; align-items: center; justify-content: space-between; background: transparent; border: none; color: #F2F0EA; padding: 16px 18px; font-size: 15px; }
+  .sectionDot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .sectionTitle { font-weight: 700; }
+  .sectionTotal { color: #c7cdd6; font-size: 14px; }
+  .sectionSub { font-size: 11.5px; color: #8a93a3; margin-top: 2px; }
+  .chev { transition: transform .15s; display: inline-block; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; color: #8a93a3; font-weight: 500; font-size: 12px; padding: 0 18px 10px; border-bottom: 1px solid #2A313C; }
+  td { padding: 12px 18px; border-bottom: 1px solid #232a34; }
+  .emptyBox { color: #8a93a3; text-align: center; padding: 40px 0; }
+  .tableWrap { overflow-x: auto; }
+  @media (max-width: 720px) {
+    table thead { display: none; }
+    table tr { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 4px; border-bottom: 1px solid #262d38; }
+    table td { display: block; border: none !important; padding: 2px 0 !important; }
+    .cell-name { grid-column: 1 / 3; font-weight: 600; }
+    .cell-sub { grid-column: 1 / 3; color: #8a93a3; font-size: 12px; margin-top: -4px; }
+    .cell-eval { grid-column: 1; }
+    .cell-return { grid-column: 2; text-align: right; }
+    .cell-hide-mobile { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="app">불러오는 중…</div>
+
+<script>
+/* ====== 설정: 여기 주소만 본인 시트 게시 링크로 바꾸면 됩니다 ====== */
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqQ2wCVzGTlE9xikvz8l7p-cyuk1JoCy67AN3XRfHbl9-sjMHnVwoJYt222119oKmRyf84ecmGZDxE/pub?gid=604547263&single=true&output=csv";
+
+const HEADER_LABELS = ["순번","통화","자산클래스","국가","자산구분","자산명","요약","자산입력","보유량","평균매입가","현재가","수익률","평가손익","평가금액","원화환산","포트비중"];
+const PALETTE = ["#C9A227","#6C8EBF","#8E7CC3","#4FB286","#D08B47","#5AA9C9","#B4658A","#7F9E3B"];
+
+function parseNum(raw){
+  if(raw===undefined||raw===null) return NaN;
+  const cleaned = String(raw).replace(/[^0-9.\-]/g,"");
+  if(cleaned===""||cleaned==="-") return NaN;
+  return parseFloat(cleaned);
+}
+function normalizeHeader(s){ return (s||"").toString().replace(/\s+/g,"").trim(); }
+function currencySymbol(cur){
+  if(!cur) return "";
+  if(cur.includes("원")) return "₩";
+  if(cur.includes("달러")||cur.toLowerCase().includes("usd")) return "$";
+  return "";
+}
+function fmtPrice(num, sym){
+  if(isNaN(num)) return "-";
+  if(sym==="$") return sym + num.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+  return (sym||"") + Math.round(num).toLocaleString("ko-KR");
+}
+function fmtKRW(n){ if(isNaN(n)) return "-"; return "₩" + Math.round(n).toLocaleString("ko-KR"); }
+function fmtSignedKRW(n){ if(isNaN(n)) return "-"; const sign = n>0?"+":n<0?"-":""; return sign + "₩" + Math.round(Math.abs(n)).toLocaleString("ko-KR"); }
+function fmtPct(raw){ const n = parseNum(raw); if(isNaN(n)) return "-"; return (n>0?"+":"") + n.toFixed(2) + "%"; }
+function escapeHtml(s){ return (s||"").toString().replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function costAndGain(krw, returnPctRaw){
+  const r = parseNum(returnPctRaw);
+  if(isNaN(krw)||isNaN(r)||r<=-100) return {cost:NaN, gain:NaN};
+  const cost = krw/(1+r/100);
+  return {cost, gain: krw-cost};
+}
+function sumCostGain(holdings){
+  let cost=0, gain=0, known=false;
+  holdings.forEach(h=>{
+    const cg = costAndGain(h.krw, h.returnPctRaw);
+    if(!isNaN(cg.cost)){ cost+=cg.cost; gain+=cg.gain; known=true; }
+  });
+  return known ? {cost, gain, pct: cost>0 ? (gain/cost)*100 : NaN} : {cost:NaN, gain:NaN, pct:NaN};
+}
+
+function parseSheet(rows){
+  let headerIdx=-1; const colMap={};
+  for(let i=0;i<rows.length;i++){
+    const row = rows[i];
+    if(row.some(c=>normalizeHeader(c)==="순번")){
+      headerIdx=i;
+      row.forEach((c,idx)=>{ const label=normalizeHeader(c); if(HEADER_LABELS.includes(label)) colMap[label]=idx; });
+      break;
+    }
+  }
+  if(headerIdx===-1) throw new Error('시트에서 "순번" 헤더 줄을 찾지 못했어요.');
+  const get = (row,label) => { const idx=colMap[label]; if(idx===undefined) return ""; return (row[idx]||"").toString().trim(); };
+
+  const sections=[]; let current=null;
+  for(let i=headerIdx+1;i<rows.length;i++){
+    const row = rows[i];
+    if(!row || row.every(c=>(c||"").toString().trim()==="")) continue;
+    const assetName = get(row,"자산명");
+    const serial = get(row,"순번");
+    const isHolding = serial!=="" && !isNaN(parseNum(serial));
+    if(assetName.includes("투자 계획")||assetName.includes("투자계획")) break;
+
+    if(isHolding){
+      if(!current){ current={title:"기타", holdings:[]}; sections.push(current); }
+      current.holdings.push({
+        name: assetName || get(row,"요약") || "이름없음",
+        summary: get(row,"요약"),
+        currency: get(row,"통화"),
+        qty: parseNum(get(row,"보유량")),
+        avgPrice: parseNum(get(row,"평균매입가")),
+        curPrice: parseNum(get(row,"현재가")),
+        returnPctRaw: get(row,"수익률"),
+        krw: parseNum(get(row,"원화환산")),
+      });
+    } else if(assetName!==""){
+      const firstLine = assetName.split("\n")[0].trim();
+      if(current && current.holdings.length===0){
+        current.title = current.title==="기타" ? firstLine : current.title + " · " + firstLine;
+      } else {
+        current = {title: firstLine, holdings: []};
+        sections.push(current);
+      }
+    }
+  }
+  const cleaned = sections.filter(s=>s.holdings.length>0);
+  if(cleaned.length===0) throw new Error("종목 데이터를 찾지 못했어요.");
+  return cleaned;
+}
+
+/* ====== 상태 & 렌더링 ====== */
+const state = {
+  sections: [],
+  error: null,
+  lastSync: null,
+  loading: true,
+  expanded: {},
+  cash: localStorage.getItem("portfolio-cash") || "",
+};
+
+function toggleSection(title){
+  state.expanded[title] = !state.expanded[title];
+  render();
+}
+
+function onCashChange(val){
+  state.cash = val;
+  localStorage.setItem("portfolio-cash", val);
+  render();
+}
+
+function load(){
+  state.loading = true; state.error = null; render();
+  fetch(SHEET_URL, {cache:"no-store"})
+    .then(r => { if(!r.ok) throw new Error("네트워크 오류"); return r.text(); })
+    .then(text => {
+      const results = Papa.parse(text.trim());
+      const parsed = parseSheet(results.data);
+      state.sections = parsed;
+      if(Object.keys(state.expanded).length===0 && parsed[0]) state.expanded[parsed[0].title] = true;
+      state.lastSync = new Date();
+      state.loading = false;
+      render();
+    })
+    .catch(err => {
+      state.error = '시트를 불러오지 못했어요. 인터넷 연결과 시트의 "웹에 게시" 상태를 확인해주세요. (' + err.message + ')';
+      state.loading = false;
+      render();
+    });
+}
+
+function render(){
+  const app = document.getElementById("app");
+  const holdingsTotal = state.sections.reduce((s,sec)=> s + sec.holdings.reduce((ss,h)=> ss + (isNaN(h.krw)?0:h.krw), 0), 0);
+  const cashKRW = parseNum(state.cash);
+  const cashValid = !isNaN(cashKRW) && cashKRW > 0;
+  const totalKRW = holdingsTotal + (cashValid ? cashKRW : 0);
+
+  const sectionTotals = state.sections.map(s=>({ title: s.title, total: s.holdings.reduce((ss,h)=> ss + (isNaN(h.krw)?0:h.krw), 0) }));
+  const compositionData = cashValid ? [...sectionTotals, {title:"예수금", total: cashKRW}] : sectionTotals;
+
+  const allHoldings = state.sections.flatMap(s=>s.holdings);
+  const totalCG = sumCostGain(allHoldings);
+  const totalCostAll = (isNaN(totalCG.cost)?0:totalCG.cost) + (cashValid ? cashKRW : 0);
+  const totalGainAll = isNaN(totalCG.gain) ? (cashValid ? 0 : NaN) : totalCG.gain;
+  const totalPctAll = (totalCostAll>0 && !isNaN(totalGainAll)) ? (totalGainAll/totalCostAll)*100 : NaN;
+
+  let html = "";
+  html += `<div class="header">
+    <div class="brandRow">
+      <div class="seal">M</div>
+      <div><h1>포트폴리오 현황</h1><p class="subtitle">미래에셋 통합 계좌 · 구글시트 자동 연동</p></div>
+    </div>
+    <button class="refreshBtn" onclick="load()">${state.loading ? "불러오는 중…" : "새로고침"}</button>
+  </div>`;
+
+  if(state.error){
+    html += `<div class="errorBox"><strong>문제가 발생했어요.</strong><div style="margin-top:4px">${escapeHtml(state.error)}</div></div>`;
+  }
+
+  if(!state.error && state.sections.length>0){
+    html += `<div class="heroCard">
+      <div class="heroLabel">총 평가금액 (원화 환산)</div>
+      <div class="heroValue mono">${fmtKRW(totalKRW)}</div>
+      ${state.lastSync ? `<div class="syncTime">마지막 동기화 ${state.lastSync.toLocaleString("ko-KR")}</div>` : ""}
+
+      <div class="statRow">
+        <div class="statChip"><div class="statLabel">투자원금 (시드, 예수금 포함)</div><div class="statValue mono">${fmtKRW(totalCostAll)}</div></div>
+        <div class="statChip"><div class="statLabel">평가손익</div><div class="statValue mono" style="color:${totalGainAll>0?'#E5484D':totalGainAll<0?'#4C8DFF':'#F2F0EA'}">${fmtSignedKRW(totalGainAll)}</div></div>
+        <div class="statChip"><div class="statLabel">수익률</div><div class="statValue mono" style="color:${totalPctAll>0?'#E5484D':totalPctAll<0?'#4C8DFF':'#F2F0EA'}">${isNaN(totalPctAll)?"-":(totalPctAll>0?"+":"")+totalPctAll.toFixed(2)+"%"}</div></div>
+      </div>
+
+      <div class="cashRow">
+        <span class="cashLabel">예수금 (직접 입력)</span>
+        <input class="cashInput mono" type="text" inputmode="numeric" placeholder="예: 15,916,255" value="${escapeHtml(state.cash)}" oninput="onCashChange(this.value)" />
+      </div>
+
+      <div class="compBar">
+        ${compositionData.map((s,i)=>{ const pct = totalKRW>0 ? (s.total/totalKRW)*100 : 0; const color = s.title==="예수금" ? "#4B5563" : PALETTE[i%PALETTE.length]; return `<div style="width:${pct}%;background:${color};height:100%" title="${escapeHtml(s.title)}"></div>`; }).join("")}
+      </div>
+      <div class="legendRow">
+        ${compositionData.map((s,i)=>{ const pct = totalKRW>0 ? (s.total/totalKRW)*100 : 0; const color = s.title==="예수금" ? "#4B5563" : PALETTE[i%PALETTE.length]; return `<div class="legendItem"><span class="legendDot" style="background:${color}"></span><span class="legendLabel">${escapeHtml(s.title)}</span><span class="legendPct mono">${pct.toFixed(1)}%</span></div>`; }).join("")}
+      </div>
+    </div>`;
+
+    state.sections.forEach((sec, si)=>{
+      const secTotal = sec.holdings.reduce((ss,h)=> ss + (isNaN(h.krw)?0:h.krw), 0);
+      const secCG = sumCostGain(sec.holdings);
+      const isOpen = !!state.expanded[sec.title];
+      html += `<div class="sectionCard">
+        <button class="sectionHeader" onclick="toggleSection('${sec.title.replace(/'/g,"\\'")}')">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="sectionDot" style="background:${PALETTE[si%PALETTE.length]}"></span>
+            <span class="sectionTitle">${escapeHtml(sec.title)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="text-align:right">
+              <div class="sectionTotal mono">${fmtKRW(secTotal)}</div>
+              <div class="sectionSub mono">원금 ${fmtKRW(secCG.cost)} · 손익 <span style="color:${secCG.gain>0?'#E5484D':secCG.gain<0?'#4C8DFF':'#8a93a3'}">${fmtSignedKRW(secCG.gain)}${!isNaN(secCG.pct)?` (${secCG.pct>0?"+":""}${secCG.pct.toFixed(2)}%)`:""}</span></div>
+            </div>
+            <span class="chev" style="transform:${isOpen?'rotate(180deg)':'none'}">▾</span>
+          </div>
+        </button>`;
+
+      if(isOpen){
+        html += `<div class="tableWrap"><table><thead><tr>
+          <th>종목</th><th>보유량</th><th>평균매입가</th><th>현재가</th><th>평가금액</th><th>평가손익</th><th>수익률</th>
+        </tr></thead><tbody>`;
+        sec.holdings.forEach(h=>{
+          const sym = currencySymbol(h.currency);
+          const retVal = parseNum(h.returnPctRaw);
+          const retColor = isNaN(retVal) ? "#8a93a3" : retVal>0 ? "#E5484D" : retVal<0 ? "#4C8DFF" : "#8a93a3";
+          const cg = costAndGain(h.krw, h.returnPctRaw);
+          html += `<tr>
+            <td><div class="cell-name">${escapeHtml(h.name)}</div>${h.summary?`<div class="cell-sub">${escapeHtml(h.summary)}</div>`:""}</td>
+            <td class="cell-hide-mobile mono">${isNaN(h.qty)?"-":h.qty.toLocaleString("ko-KR")}</td>
+            <td class="cell-hide-mobile mono">${fmtPrice(h.avgPrice, sym)}</td>
+            <td class="cell-hide-mobile mono">${fmtPrice(h.curPrice, sym)}</td>
+            <td class="cell-eval mono">${fmtKRW(h.krw)}</td>
+            <td class="cell-hide-mobile mono" style="color:${retColor}">${fmtSignedKRW(cg.gain)}</td>
+            <td class="cell-return mono" style="color:${retColor};font-weight:600">${fmtPct(h.returnPctRaw)}</td>
+          </tr>`;
+        });
+        html += `</tbody></table></div>`;
+      }
+      html += `</div>`;
+    });
+  } else if(!state.error && state.loading){
+    html += `<div class="emptyBox">불러오는 중…</div>`;
+  }
+
+  app.innerHTML = html;
+}
+
+load();
+</script>
+</body>
+</html>
