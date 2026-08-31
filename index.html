@@ -82,7 +82,7 @@
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqQ2wCVzGTlE9xikvz8l7p-cyuk1JoCy67AN3XRfHbl9-sjMHnVwoJYt222119oKmRyf84ecmGZDxE/pub?gid=1535118736&single=true&output=csv";
 
 const PALETTE = ["#C9A227","#6C8EBF","#8E7CC3","#4FB286","#D08B47","#5AA9C9","#B4658A","#7F9E3B"];
-const EXCLUDE_TITLES = ["장모님", "부모님"];
+const ALLOWED_TITLES = ["M ISA 계좌", "W ISA 계좌", "M 직투", "M 직투 - 무한매수법", "M 직투 - 밸류리밸런싱(VR)", "W 직투", "M 연저펀", "W 연저펀"];
 
 function parseNum(raw){
   if(raw===undefined||raw===null) return NaN;
@@ -98,6 +98,30 @@ function fmtSignedKRW(n){ if(isNaN(n)) return "-"; const sign = n>0?"+":n<0?"-":
 function fmtPct(n){ if(isNaN(n)) return "-"; return (n>0?"+":"") + n.toFixed(2) + "%"; }
 function fmtPrice(raw, fx){ const n = parseNum(raw); if(isNaN(n)) return "-"; if(isUSD(raw)) return "$" + n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); return "₩" + Math.round(n).toLocaleString("ko-KR"); }
 function escapeHtml(s){ return (s||"").toString().replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function parseSectorTable(rows){
+  let markerRow = -1, markerCol = -1;
+  outer: for(let r=0;r<rows.length;r++){
+    const row = rows[r];
+    for(let c=0;c<row.length;c++){
+      if((row[c]||"").toString().trim()==="전체 포트 비중"){ markerRow=r; markerCol=c; break outer; }
+    }
+  }
+  if(markerRow === -1) return null;
+  const list = [];
+  let dividendYieldPct = NaN;
+  for(let r=markerRow+1; r<Math.min(rows.length, markerRow+25); r++){
+    const row = rows[r];
+    if(!row) break;
+    const label = (row[markerCol]||"").toString().trim();
+    const valueRaw = (row[markerCol+1]||"").toString().trim();
+    if(label === ""){ if(list.length>0 || !isNaN(dividendYieldPct)) break; else continue; }
+    if(label === "전체 배당률"){ dividendYieldPct = parseNum(valueRaw); break; }
+    const pct = parseNum(valueRaw);
+    if(!isNaN(pct)) list.push({ label, pct });
+  }
+  return { list, dividendYieldPct };
+}
 
 function parseSheet(rows){
   let fxRate = 1377;
@@ -120,9 +144,12 @@ function parseSheet(rows){
     // 계좌 블록 시작 (예: "M ISA 계좌(26.2월 시작)")
     if(c0 !== "" && c1 === "" && isNaN(parseFloat(c0))){
       const title = cleanTitle(c0);
-      if(EXCLUDE_TITLES.some(x => title.includes(x))) break;
-      current = { title, holdings: [], cashKRW: NaN, principalKRW: NaN, totalEvalKRW: NaN, totalGainKRW: NaN, totalPct: NaN, monthlyDivKRW: NaN };
-      sections.push(current);
+      if(ALLOWED_TITLES.includes(title)){
+        current = { title, holdings: [], cashKRW: NaN, principalKRW: NaN, totalEvalKRW: NaN, totalGainKRW: NaN, totalPct: NaN, monthlyDivKRW: NaN };
+        sections.push(current);
+      } else {
+        current = null; // 관심 없는 블록(요약/중복 표, 장모님·부모님 등)은 건너뜀
+      }
       continue;
     }
     if(!current) continue;
@@ -161,7 +188,7 @@ function parseSheet(rows){
 }
 
 /* ====== 상태 & 렌더링 ====== */
-const state = { sections: [], error: null, lastSync: null, loading: true, expanded: {} };
+const state = { sections: [], sector: null, error: null, lastSync: null, loading: true, expanded: {} };
 
 function toggleSection(title){ state.expanded[title] = !state.expanded[title]; render(); }
 
