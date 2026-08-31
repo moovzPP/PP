@@ -200,6 +200,7 @@ function load(){
       const results = Papa.parse(text.trim());
       const parsed = parseSheet(results.data);
       state.sections = parsed;
+      state.sector = parseSectorTable(results.data);
       if(Object.keys(state.expanded).length===0 && parsed[0]) state.expanded[parsed[0].title] = true;
       state.lastSync = new Date();
       state.loading = false;
@@ -246,6 +247,7 @@ function render(){
         <div class="statChip"><div class="statLabel">평가손익</div><div class="statValue mono" style="color:${grandGain>0?'#E5484D':grandGain<0?'#4C8DFF':'#F2F0EA'}">${grandGainKnown?fmtSignedKRW(grandGain):"-"}</div></div>
         <div class="statChip"><div class="statLabel">수익률</div><div class="statValue mono" style="color:${grandPct>0?'#E5484D':grandPct<0?'#4C8DFF':'#F2F0EA'}">${fmtPct(grandPct)}</div></div>
         <div class="statChip"><div class="statLabel">예상 월배당</div><div class="statValue mono">${fmtKRW(grandDiv)}</div></div>
+        ${state.sector && !isNaN(state.sector.dividendYieldPct) ? `<div class="statChip"><div class="statLabel">전체 배당률</div><div class="statValue mono">${fmtPct(state.sector.dividendYieldPct)}</div></div>` : ""}
       </div>
 
       <div class="compBar">
@@ -255,6 +257,20 @@ function render(){
         ${state.sections.map((s,i)=>{ const pct = grandTotal>0 ? (s.totalEvalKRW/grandTotal)*100 : 0; return `<div class="legendItem"><span class="legendDot" style="background:${PALETTE[i%PALETTE.length]}"></span><span class="legendLabel">${escapeHtml(s.title)}</span><span class="legendPct mono">${pct.toFixed(1)}%</span></div>`; }).join("")}
       </div>
     </div>`;
+
+    if(state.sector && state.sector.list.length > 0){
+      html += `<div class="heroCard">
+        <div class="heroLabel" style="margin-bottom:14px">섹터 비중</div>
+        ${state.sector.list.map((s,i)=> `
+          <div style="display:flex;align-items:center;gap:10px;margin-top:${i===0?0:10}px">
+            <div style="width:88px;flex-shrink:0;font-size:12.5px;color:#c7cdd6">${escapeHtml(s.label)}</div>
+            <div style="flex:1;height:8px;background:#262d38;border-radius:4px;overflow:hidden">
+              <div style="width:${Math.min(s.pct,100)}%;height:100%;background:${PALETTE[i%PALETTE.length]}"></div>
+            </div>
+            <div style="width:54px;flex-shrink:0;text-align:right;font-size:12.5px" class="mono">${s.pct.toFixed(2)}%</div>
+          </div>`).join("")}
+      </div>`;
+    }
 
     state.sections.forEach((sec, si)=>{
       const isOpen = !!state.expanded[sec.title];
