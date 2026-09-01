@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="포트폴리오" />
 <meta name="mobile-web-app-capable" content="yes" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js" defer></script>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -400,7 +400,7 @@ function render(){
   app.innerHTML = html;
 
   const canvas = document.getElementById("divChart");
-  if(canvas && state.dividends && state.dividends.months.length > 0){
+  if(canvas && typeof Chart !== "undefined" && state.dividends && state.dividends.months.length > 0){
     const { groups, monthly, months } = state.dividends;
     if(chartInstance) chartInstance.destroy();
     chartInstance = new Chart(canvas.getContext("2d"), {
