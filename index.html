@@ -123,6 +123,51 @@ function parseSectorTable(rows){
   return { list, dividendYieldPct };
 }
 
+function parseDividendTable(rows){
+  const markers = [];
+  for(let r=0;r<rows.length;r++){
+    const row = rows[r];
+    for(let c=0;c<row.length;c++){
+      if((row[c]||"").toString().trim()==="날짜 (A)") markers.push({row:r, col:c});
+    }
+  }
+  if(markers.length===0) return null;
+  const groups = markers.map(m=>{
+    let label = "";
+    const aboveRow = rows[m.row-1] || [];
+    for(let cc=m.col; cc>=Math.max(0,m.col-1); cc--){
+      const t = (aboveRow[cc]||"").toString().trim();
+      if(t){ label = t; break; }
+    }
+    if(!label) label = "그룹";
+    const amountCols = [];
+    let cc = m.col+1;
+    while(cc < (rows[m.row]||[]).length){
+      const h = (rows[m.row][cc]||"").toString().trim();
+      if(h.includes("배당금")){ amountCols.push(cc); cc++; } else break;
+    }
+    return { label, dateCol: m.col, amountCols, headerRow: m.row };
+  });
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  const monthly = {}; const allMonths = new Set();
+  groups.forEach(g=>{
+    monthly[g.label] = {};
+    for(let r=g.headerRow+1; r<Math.min(rows.length, g.headerRow+60); r++){
+      const row = rows[r]; if(!row) continue;
+      const dateVal = (row[g.dateCol]||"").toString().trim();
+      if(!dateRe.test(dateVal)) continue;
+      const month = dateVal.slice(0,7);
+      let sum = 0;
+      g.amountCols.forEach(ci => { const n = parseNum(row[ci]); if(!isNaN(n)) sum += n; });
+      monthly[g.label][month] = (monthly[g.label][month]||0) + sum;
+      allMonths.add(month);
+    }
+  });
+  const months = Array.from(allMonths).sort();
+  return { groups: groups.map(g=>g.label), monthly, months };
+}
+function formatMonthLabel(m){ const [y,mo] = m.split("-"); return (parseInt(y)%100) + "년 " + parseInt(mo) + "월"; }
+
 function parseSheet(rows){
   let fxRate = 1377;
   for(const row of rows){
@@ -188,7 +233,7 @@ function parseSheet(rows){
 }
 
 /* ====== 상태 & 렌더링 ====== */
-const state = { sections: [], sector: null, error: null, lastSync: null, loading: true, expanded: {} };
+const state = { sections: [], sector: null, dividends: null, error: null, lastSync: null, loading: true, expanded: {} };
 
 function toggleSection(title){ state.expanded[title] = !state.expanded[title]; render(); }
 
@@ -201,6 +246,7 @@ function load(){
       const parsed = parseSheet(results.data);
       state.sections = parsed;
       state.sector = parseSectorTable(results.data);
+      state.dividends = parseDividendTable(results.data);
       if(Object.keys(state.expanded).length===0 && parsed[0]) state.expanded[parsed[0].title] = true;
       state.lastSync = new Date();
       state.loading = false;
@@ -269,6 +315,33 @@ function render(){
             </div>
             <div style="width:54px;flex-shrink:0;text-align:right;font-size:12.5px" class="mono">${s.pct.toFixed(2)}%</div>
           </div>`).join("")}
+      </div>`;
+    }
+
+    if(state.dividends && state.dividends.months.length > 0){
+      const groups = state.dividends.groups;
+      const monthly = state.dividends.monthly;
+      const months = state.dividends.months;
+      const grandTotalDiv = months.reduce((s,m)=> s + groups.reduce((ss,g)=> ss + (monthly[g][m]||0), 0), 0);
+      html += `<div class="heroCard">
+        <div class="heroLabel" style="margin-bottom:14px">월별 실수령 분배금</div>
+        <div class="tableWrap"><table><thead><tr>
+          <th>월</th>${groups.map(g=>`<th>${escapeHtml(g)}</th>`).join("")}<th>합계</th>
+        </tr></thead><tbody>
+          ${months.map(m=>{
+            const rowTotal = groups.reduce((s,g)=> s + (monthly[g][m]||0), 0);
+            return `<tr>
+              <td class="mono" style="font-weight:600">${formatMonthLabel(m)}</td>
+              ${groups.map(g=> `<td class="mono">${fmtKRW(monthly[g][m]||0)}</td>`).join("")}
+              <td class="mono" style="font-weight:700;color:#C9A227">${fmtKRW(rowTotal)}</td>
+            </tr>`;
+          }).join("")}
+          <tr>
+            <td class="mono" style="font-weight:700">합계</td>
+            ${groups.map(g=> `<td class="mono" style="font-weight:700">${fmtKRW(months.reduce((s,m)=> s+(monthly[g][m]||0),0))}</td>`).join("")}
+            <td class="mono" style="font-weight:800;color:#C9A227">${fmtKRW(grandTotalDiv)}</td>
+          </tr>
+        </tbody></table></div>
       </div>`;
     }
 
