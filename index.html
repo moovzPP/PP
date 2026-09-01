@@ -13,6 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="포트폴리오" />
 <meta name="mobile-web-app-capable" content="yes" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -234,6 +235,7 @@ function parseSheet(rows){
 
 /* ====== 상태 & 렌더링 ====== */
 const state = { sections: [], sector: null, dividends: null, error: null, lastSync: null, loading: true, expanded: {} };
+let chartInstance = null;
 
 function toggleSection(title){ state.expanded[title] = !state.expanded[title]; render(); }
 
@@ -325,6 +327,7 @@ function render(){
       const grandTotalDiv = months.reduce((s,m)=> s + groups.reduce((ss,g)=> ss + (monthly[g][m]||0), 0), 0);
       html += `<div class="heroCard">
         <div class="heroLabel" style="margin-bottom:14px">월별 실수령 분배금</div>
+        <div style="height:220px;margin-bottom:20px"><canvas id="divChart"></canvas></div>
         <div class="tableWrap"><table><thead><tr>
           <th>월</th>${groups.map(g=>`<th>${escapeHtml(g)}</th>`).join("")}<th>합계</th>
         </tr></thead><tbody>
@@ -395,6 +398,36 @@ function render(){
   }
 
   app.innerHTML = html;
+
+  const canvas = document.getElementById("divChart");
+  if(canvas && state.dividends && state.dividends.months.length > 0){
+    const { groups, monthly, months } = state.dividends;
+    if(chartInstance) chartInstance.destroy();
+    chartInstance = new Chart(canvas.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: months.map(formatMonthLabel),
+        datasets: groups.map((g,i) => ({
+          label: g,
+          data: months.map(m => Math.round(monthly[g][m]||0)),
+          backgroundColor: PALETTE[i % PALETTE.length],
+          borderRadius: 3,
+        })),
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { stacked: true, ticks: { color: "#8a93a3", font: { size: 11 } }, grid: { color: "#232a34" } },
+          y: { stacked: true, ticks: { color: "#8a93a3", font: { size: 10 }, callback: v => (v/10000).toLocaleString() + "만" }, grid: { color: "#232a34" } },
+        },
+        plugins: {
+          legend: { labels: { color: "#c7cdd6", font: { size: 11 }, boxWidth: 10 } },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtKRW(ctx.parsed.y)}` } },
+        },
+      },
+    });
+  }
 }
 
 load();
