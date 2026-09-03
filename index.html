@@ -104,6 +104,7 @@ function parseSectorTable(rows){
   let markerRow = -1, markerCol = -1;
   outer: for(let r=0;r<rows.length;r++){
     const row = rows[r];
+    if(!row) continue;
     for(let c=0;c<row.length;c++){
       if((row[c]||"").toString().trim()==="전체 포트 비중"){ markerRow=r; markerCol=c; break outer; }
     }
@@ -128,6 +129,7 @@ function parseDividendTable(rows){
   const markers = [];
   for(let r=0;r<rows.length;r++){
     const row = rows[r];
+    if(!row) continue;
     for(let c=0;c<row.length;c++){
       if((row[c]||"").toString().trim()==="날짜 (A)") markers.push({row:r, col:c});
     }
@@ -168,6 +170,30 @@ function parseDividendTable(rows){
   return { groups: groups.map(g=>g.label), monthly, months };
 }
 function formatMonthLabel(m){ const [y,mo] = m.split("-"); return (parseInt(y)%100) + "년 " + parseInt(mo) + "월"; }
+
+function parseTriPod(rows){
+  let sigRow=-1, sigCol=-1, trendRow=-1, trendCol=-1;
+  for(let r=0;r<rows.length;r++){
+    const row = rows[r];
+    if(!row) continue;
+    for(let c=0;c<row.length;c++){
+      const t = (row[c]||"").toString().trim();
+      if(t==="최종 매매 신호" && sigRow===-1){ sigRow=r; sigCol=c; }
+      if(t==="추세 판정" && trendRow===-1){ trendRow=r; trendCol=c; }
+    }
+  }
+  if(sigRow===-1) return null;
+  const signal = ((rows[sigRow+1]||[])[sigCol]||"").toString().trim();
+  const trend = trendRow!==-1 ? ((rows[trendRow+1]||[])[trendCol]||"").toString().trim() : "";
+  if(!signal) return null;
+  return { signal, trend };
+}
+function tripodColor(signal){
+  if(signal.includes("TQQQ")) return "#E5484D";
+  if(signal.includes("QQQ") && signal.includes("QLD")) return "#D08B47";
+  if(signal.includes("현금")) return "#4C8DFF";
+  return "#8a93a3";
+}
 
 function parseSheet(rows){
   let fxRate = 1377;
@@ -234,10 +260,21 @@ function parseSheet(rows){
 }
 
 /* ====== 상태 & 렌더링 ====== */
-const state = { sections: [], sector: null, dividends: null, error: null, lastSync: null, loading: true, expanded: {} };
+const state = { sections: [], sector: null, dividends: null, tripod: null, error: null, lastSync: null, loading: true, expanded: {} };
 let chartInstance = null;
 
 function toggleSection(title){ state.expanded[title] = !state.expanded[title]; render(); }
+
+function requestTripodNotif(){
+  if(typeof Notification === "undefined"){
+    alert("이 브라우저에서는 알림 기능을 지원하지 않아요.");
+    return;
+  }
+  Notification.requestPermission().then(p => {
+    if(p === "granted") new Notification("알림이 켜졌어요", { body: "신호가 바뀌면 앱을 열 때 알려드릴게요." });
+    else alert("알림 권한이 꺼져있어요. 브라우저/기기 설정에서 알림을 허용해주세요.");
+  });
+}
 
 function load(){
   state.loading = true; state.error = null; render();
@@ -251,6 +288,17 @@ function load(){
       state.sections = parsed;
       try { state.sector = parseSectorTable(results.data); } catch(e) { console.error("섹터 표 파싱 실패", e); state.sector = null; }
       try { state.dividends = parseDividendTable(results.data); } catch(e) { console.error("분배금 표 파싱 실패", e); state.dividends = null; }
+      try {
+        state.tripod = parseTriPod(results.data);
+        if(state.tripod){
+          const prev = localStorage.getItem("tripod-last-signal");
+          state.tripodChanged = prev !== null && prev !== state.tripod.signal;
+          localStorage.setItem("tripod-last-signal", state.tripod.signal);
+          if(state.tripodChanged && typeof Notification !== "undefined" && Notification.permission === "granted"){
+            try { new Notification("트라이팟 신호 변경", { body: prev + " → " + state.tripod.signal }); } catch(e){}
+          }
+        }
+      } catch(e) { console.error("트라이팟 파싱 실패", e); state.tripod = null; }
       if(Object.keys(state.expanded).length===0 && parsed[0]) state.expanded[parsed[0].title] = true;
       state.lastSync = new Date();
       state.loading = false;
@@ -324,6 +372,20 @@ function render(){
       </div>`;
     }
 
+    if(state.tripod){
+      const color = tripodColor(state.tripod.signal);
+      html += `<div class="heroCard" style="padding:16px 22px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div>
+            <div class="heroLabel">트라이팟 신호${state.tripod.trend ? ` <span style="color:#5f6773">· 추세 ${escapeHtml(state.tripod.trend)}</span>` : ""}</div>
+            <div class="mono" style="font-size:20px;font-weight:800;color:${color};margin-top:4px">${escapeHtml(state.tripod.signal)}</div>
+          </div>
+          ${state.tripodChanged ? `<div style="background:#2a2417;border:1px solid #5c4a2a;color:#f2dcae;font-size:11px;padding:4px 10px;border-radius:999px">방금 신호가 바뀌었어요</div>` : ""}
+          <button onclick="requestTripodNotif()" style="background:#12161d;border:1px solid #2A313C;color:#8a93a3;padding:6px 12px;border-radius:8px;font-size:11px;cursor:pointer">🔔 알림 켜기</button>
+        </div>
+      </div>`;
+    }
+
     if(state.dividends && state.dividends.months.length > 0){
       const groups = state.dividends.groups;
       const monthly = state.dividends.monthly;
@@ -331,7 +393,7 @@ function render(){
       const grandTotalDiv = months.reduce((s,m)=> s + groups.reduce((ss,g)=> ss + (monthly[g][m]||0), 0), 0);
       html += `<div class="heroCard">
         <div class="heroLabel" style="margin-bottom:14px">월별 실수령 분배금</div>
-        <div style="height:220px;margin-bottom:20px"><canvas id="divChart"></canvas></div>
+        <div id="divChartWrap" style="height:220px;margin-bottom:20px;display:flex;align-items:center;justify-content:center;color:#5f6773;font-size:12px">그래프 준비 중…</div>
         <div class="tableWrap"><table><thead><tr>
           <th>월</th>${groups.map(g=>`<th>${escapeHtml(g)}</th>`).join("")}<th>합계</th>
         </tr></thead><tbody>
@@ -403,37 +465,44 @@ function render(){
 
   app.innerHTML = html;
 
-  const canvas = document.getElementById("divChart");
-  if(canvas && typeof Chart !== "undefined" && state.dividends && state.dividends.months.length > 0){
-    try {
-      const { groups, monthly, months } = state.dividends;
-      if(chartInstance) chartInstance.destroy();
-      chartInstance = new Chart(canvas.getContext("2d"), {
-      type: "bar",
-      data: {
-        labels: months.map(formatMonthLabel),
-        datasets: groups.map((g,i) => ({
-          label: g,
-          data: months.map(m => Math.round(monthly[g][m]||0)),
-          backgroundColor: PALETTE[i % PALETTE.length],
-          borderRadius: 3,
-        })),
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { stacked: true, ticks: { color: "#8a93a3", font: { size: 11 } }, grid: { color: "#232a34" } },
-          y: { stacked: true, ticks: { color: "#8a93a3", font: { size: 10 }, callback: v => (v/10000).toLocaleString() + "만" }, grid: { color: "#232a34" } },
-        },
-        plugins: {
-          legend: { labels: { color: "#c7cdd6", font: { size: 11 }, boxWidth: 10 } },
-          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtKRW(ctx.parsed.y)}` } },
-        },
-      },
-    });
-    } catch(e) {
-      console.error("차트 생성 실패", e);
+  const chartWrap = document.getElementById("divChartWrap");
+  if(chartWrap && state.dividends && state.dividends.months.length > 0){
+    if(typeof Chart === "undefined"){
+      chartWrap.innerHTML = '<div style="color:#f2c9cc;font-size:12px;text-align:center;padding:0 12px">그래프 라이브러리(Chart.js)를 불러오지 못했어요.<br>인터넷 연결을 확인하고 새로고침해보세요.</div>';
+    } else {
+      chartWrap.innerHTML = '<canvas id="divChart"></canvas>';
+      const canvas = document.getElementById("divChart");
+      try {
+        const { groups, monthly, months } = state.dividends;
+        if(chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(canvas.getContext("2d"), {
+          type: "bar",
+          data: {
+            labels: months.map(formatMonthLabel),
+            datasets: groups.map((g,i) => ({
+              label: g,
+              data: months.map(m => Math.round(monthly[g][m]||0)),
+              backgroundColor: PALETTE[i % PALETTE.length],
+              borderRadius: 3,
+            })),
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { stacked: true, ticks: { color: "#8a93a3", font: { size: 11 } }, grid: { color: "#232a34" } },
+              y: { stacked: true, ticks: { color: "#8a93a3", font: { size: 10 }, callback: v => (v/10000).toLocaleString() + "만" }, grid: { color: "#232a34" } },
+            },
+            plugins: {
+              legend: { labels: { color: "#c7cdd6", font: { size: 11 }, boxWidth: 10 } },
+              tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtKRW(ctx.parsed.y)}` } },
+            },
+          },
+        });
+      } catch(e) {
+        console.error("차트 생성 실패", e);
+        chartWrap.innerHTML = '<div style="color:#f2c9cc;font-size:12px;text-align:center;padding:0 12px">그래프 생성 중 오류: ' + escapeHtml(e.message) + '</div>';
+      }
     }
   }
 }
