@@ -64,14 +64,16 @@
   .emptyBox { color: #8a93a3; text-align: center; padding: 40px 0; }
   .tableWrap { overflow-x: auto; }
   @media (max-width: 720px) {
-    table thead { display: none; }
-    table tr { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 4px; border-bottom: 1px solid #262d38; }
-    table td { display: block; border: none !important; padding: 2px 0 !important; }
+    .holdingsTable thead { display: none; }
+    .holdingsTable tr { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 4px; border-bottom: 1px solid #262d38; }
+    .holdingsTable td { display: block; border: none !important; padding: 2px 0 !important; }
     .cell-name { grid-column: 1 / 3; font-weight: 600; }
     .cell-sub { grid-column: 1 / 3; color: #8a93a3; font-size: 12px; margin-top: -4px; }
     .cell-eval { grid-column: 1; }
     .cell-return { grid-column: 2; text-align: right; }
     .cell-hide-mobile { display: none !important; }
+    .divGroupCol { display: none !important; }
+    .divTable td, .divTable th { padding: 10px 14px; }
   }
 </style>
 </head>
@@ -235,7 +237,7 @@ function parseSheet(rows){
       current.monthlyDivKRW = toKRW(row[11], fxRate);
       continue;
     }
-    if(c2 !== "" || c8 !== ""){
+    if(c1 !== "" && (c2 !== "" || c8 !== "")){
       current.holdings.push({
         name: c1,
         code: c2,
@@ -394,20 +396,20 @@ function render(){
       html += `<div class="heroCard">
         <div class="heroLabel" style="margin-bottom:14px">월별 실수령 분배금</div>
         <div id="divChartWrap" style="height:220px;margin-bottom:20px;display:flex;align-items:center;justify-content:center;color:#5f6773;font-size:12px">그래프 준비 중…</div>
-        <div class="tableWrap"><table><thead><tr>
-          <th>월</th>${groups.map(g=>`<th>${escapeHtml(g)}</th>`).join("")}<th>합계</th>
+        <div class="tableWrap"><table class="divTable"><thead><tr>
+          <th>월</th>${groups.map(g=>`<th class="divGroupCol">${escapeHtml(g)}</th>`).join("")}<th>합계</th>
         </tr></thead><tbody>
           ${months.map(m=>{
             const rowTotal = groups.reduce((s,g)=> s + (monthly[g][m]||0), 0);
             return `<tr>
               <td class="mono" style="font-weight:600">${formatMonthLabel(m)}</td>
-              ${groups.map(g=> `<td class="mono">${fmtKRW(monthly[g][m]||0)}</td>`).join("")}
+              ${groups.map(g=> `<td class="mono divGroupCol">${fmtKRW(monthly[g][m]||0)}</td>`).join("")}
               <td class="mono" style="font-weight:700;color:#C9A227">${fmtKRW(rowTotal)}</td>
             </tr>`;
           }).join("")}
           <tr>
             <td class="mono" style="font-weight:700">합계</td>
-            ${groups.map(g=> `<td class="mono" style="font-weight:700">${fmtKRW(months.reduce((s,m)=> s+(monthly[g][m]||0),0))}</td>`).join("")}
+            ${groups.map(g=> `<td class="mono divGroupCol" style="font-weight:700">${fmtKRW(months.reduce((s,m)=> s+(monthly[g][m]||0),0))}</td>`).join("")}
             <td class="mono" style="font-weight:800;color:#C9A227">${fmtKRW(grandTotalDiv)}</td>
           </tr>
         </tbody></table></div>
@@ -440,7 +442,7 @@ function render(){
         </div>`;
 
         if(sec.holdings.length > 0){
-          html += `<div class="tableWrap"><table><thead><tr>
+          html += `<div class="tableWrap"><table class="holdingsTable"><thead><tr>
             <th>종목</th><th>보유량</th><th>현재가</th><th>평가금액</th><th>평가손익</th><th>수익률</th>
           </tr></thead><tbody>`;
           sec.holdings.forEach(h=>{
@@ -474,28 +476,29 @@ function render(){
       const canvas = document.getElementById("divChart");
       try {
         const { groups, monthly, months } = state.dividends;
+        const totals = months.map(m => Math.round(groups.reduce((s,g) => s + (monthly[g][m]||0), 0)));
         if(chartInstance) chartInstance.destroy();
         chartInstance = new Chart(canvas.getContext("2d"), {
           type: "bar",
           data: {
             labels: months.map(formatMonthLabel),
-            datasets: groups.map((g,i) => ({
-              label: g,
-              data: months.map(m => Math.round(monthly[g][m]||0)),
-              backgroundColor: PALETTE[i % PALETTE.length],
-              borderRadius: 3,
-            })),
+            datasets: [{
+              label: "합계",
+              data: totals,
+              backgroundColor: "#C9A227",
+              borderRadius: 4,
+            }],
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-              x: { stacked: true, ticks: { color: "#8a93a3", font: { size: 11 } }, grid: { color: "#232a34" } },
-              y: { stacked: true, ticks: { color: "#8a93a3", font: { size: 10 }, callback: v => (v/10000).toLocaleString() + "만" }, grid: { color: "#232a34" } },
+              x: { ticks: { color: "#8a93a3", font: { size: 11 } }, grid: { color: "#232a34" } },
+              y: { ticks: { color: "#8a93a3", font: { size: 10 }, callback: v => (v/10000).toLocaleString() + "만" }, grid: { color: "#232a34" } },
             },
             plugins: {
-              legend: { labels: { color: "#c7cdd6", font: { size: 11 }, boxWidth: 10 } },
-              tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtKRW(ctx.parsed.y)}` } },
+              legend: { display: false },
+              tooltip: { callbacks: { title: ctx => ctx[0].label, label: ctx => "합계 " + fmtKRW(ctx.parsed.y) } },
             },
           },
         });
