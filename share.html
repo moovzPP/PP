@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>포트폴리오 (공개용)</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon.png" />
+<link rel="apple-touch-icon" href="icon-180.png" />
+<meta name="theme-color" content="#12161d" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="포트폴리오" />
+<meta name="mobile-web-app-capable" content="yes" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #12161d;
+    color: #F2F0EA;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+  #app { max-width: 880px; margin: 0 auto; padding: 28px 18px 64px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  .brandRow { display: flex; align-items: center; gap: 12px; }
+  .seal { width: 40px; height: 40px; border-radius: 50%; background: #E5484D; color: #12161d; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; flex-shrink: 0; }
+  h1 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+  .subtitle { font-size: 13px; color: #8a93a3; margin: 2px 0 0; }
+  button { cursor: pointer; }
+  .refreshBtn { background: #1C222B; border: 1px solid #2A313C; color: #F2F0EA; padding: 9px 16px; border-radius: 8px; font-size: 13px; }
+  .errorBox { background: #2a171a; border: 1px solid #5c2a2f; color: #f2c9cc; border-radius: 10px; padding: 16px; margin-bottom: 18px; font-size: 14px; }
+  .heroCard { background: #1C222B; border: 1px solid #2A313C; border-radius: 16px; padding: 22px 22px 20px; margin-bottom: 22px; }
+  .heroLabel { font-size: 13px; color: #8a93a3; }
+  .heroValue { font-size: 34px; font-weight: 800; margin-top: 6px; letter-spacing: -0.02em; }
+  .syncTime { font-size: 12px; color: #5f6773; margin-top: 6px; }
+  .statRow { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .statChip { background: #12161d; border: 1px solid #2A313C; border-radius: 10px; padding: 10px 14px; flex: 1 1 130px; }
+  .statLabel { font-size: 11.5px; color: #8a93a3; margin-bottom: 4px; }
+  .statValue { font-size: 16px; font-weight: 700; }
+  .compBar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; margin-top: 18px; background: #262d38; }
+  .legendRow { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 14px; }
+  .legendItem { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+  .legendDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .legendLabel { color: #c7cdd6; }
+  .legendPct { color: #8a93a3; }
+  .sectionCard { background: #1C222B; border: 1px solid #2A313C; border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
+  .sectionHeader { width: 100%; display: flex; align-items: center; justify-content: space-between; background: transparent; border: none; color: #F2F0EA; padding: 16px 18px; font-size: 15px; }
+  .sectionDot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .sectionTitle { font-weight: 700; }
+  .sectionTotal { color: #c7cdd6; font-size: 14px; }
+  .sectionSub { font-size: 11.5px; color: #8a93a3; margin-top: 2px; }
+  .sectionDetail { padding: 0 18px 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .miniChip { background: #12161d; border: 1px solid #2A313C; border-radius: 8px; padding: 8px 12px; font-size: 12px; flex: 1 1 110px; }
+  .miniLabel { color: #8a93a3; font-size: 10.5px; margin-bottom: 2px; }
+  .miniValue { font-weight: 700; font-size: 13px; }
+  .chev { transition: transform .15s; display: inline-block; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; color: #8a93a3; font-weight: 500; font-size: 12px; padding: 0 18px 10px; border-bottom: 1px solid #2A313C; }
+  td { padding: 12px 18px; border-bottom: 1px solid #232a34; }
+  .emptyBox { color: #8a93a3; text-align: center; padding: 40px 0; }
+  .tableWrap { overflow-x: auto; }
+  @media (max-width: 720px) {
+    .holdingsTable thead { display: none; }
+    .holdingsTable tr { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 4px; border-bottom: 1px solid #262d38; }
+    .holdingsTable td { display: block; border: none !important; padding: 2px 0 !important; }
+    .cell-name { grid-column: 1 / 3; font-weight: 600; }
+    .cell-sub { grid-column: 1 / 3; color: #8a93a3; font-size: 12px; margin-top: -4px; }
+    .cell-eval { grid-column: 1; }
+    .cell-return { grid-column: 2; text-align: right; }
+    .cell-hide-mobile { display: none !important; }
+    .divGroupCol { display: none !important; }
+    .divTable td, .divTable th { padding: 10px 14px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">불러오는 중…</div>
+
+<script>
+/* ====== 설정: 시트 게시 링크 ====== */
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqQ2wCVzGTlE9xikvz8l7p-cyuk1JoCy67AN3XRfHbl9-sjMHnVwoJYt222119oKmRyf84ecmGZDxE/pub?gid=1535118736&single=true&output=csv";
+
+const PALETTE = ["#C9A227","#6C8EBF","#8E7CC3","#4FB286","#D08B47","#5AA9C9","#B4658A","#7F9E3B"];
+const ALLOWED_TITLES = ["M ISA 계좌", "W ISA 계좌", "M 직투", "M 직투 - 무한매수법", "M 직투 - 밸류리밸런싱(VR)", "W 직투", "M 연저펀", "W 연저펀"];
+
+function parseNum(raw){
+  if(raw===undefined||raw===null) return NaN;
+  const cleaned = String(raw).replace(/[^0-9.\-]/g,"");
+  if(cleaned===""||cleaned==="-") return NaN;
+  return parseFloat(cleaned);
+}
+function isUSD(raw){ return String(raw||"").includes("$"); }
+function toKRW(raw, fx){ const n = parseNum(raw); if(isNaN(n)) return NaN; return isUSD(raw) ? n*fx : n; }
+function cleanTitle(raw){ const t = raw.replace(/\(?\s*\d[\d.]*\s*월?\s*시작\)?\s*$/,"").trim(); return t || raw.trim(); }
+function fmtKRW(n){ if(isNaN(n)) return "-"; return "₩" + Math.round(n).toLocaleString("ko-KR"); }
+function fmtSignedKRW(n){ if(isNaN(n)) return "-"; const sign = n>0?"+":n<0?"-":""; return sign + "₩" + Math.round(Math.abs(n)).toLocaleString("ko-KR"); }
+function fmtPct(n){ if(isNaN(n)) return "-"; return (n>0?"+":"") + n.toFixed(2) + "%"; }
+function fmtPrice(raw, fx){ const n = parseNum(raw); if(isNaN(n)) return "-"; if(isUSD(raw)) return "$" + n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); return "₩" + Math.round(n).toLocaleString("ko-KR"); }
+function escapeHtml(s){ return (s||"").toString().replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function parseSectorTable(rows){
+  let markerRow = -1, markerCol = -1;
+  outer: for(let r=0;r<rows.length;r++){
+    const row = rows[r];
+    if(!row) continue;
+    for(let c=0;c<row.length;c++){
+      if((row[c]||"").toString().trim()==="전체 포트 비중"){ markerRow=r; markerCol=c; break outer; }
+    }
+  }
+  if(markerRow === -1) return null;
+  const list = [];
+  let dividendYieldPct = NaN;
+  for(let r=markerRow+1; r<Math.min(rows.length, markerRow+25); r++){
+    const row = rows[r];
+    if(!row) break;
+    const label = (row[markerCol]||"").toString().trim();
+    const valueRaw = (row[markerCol+1]||"").toString().trim();
+    if(label === ""){ if(list.length>0 || !isNaN(dividendYieldPct)) break; else continue; }
+    if(label === "전체 배당률"){ dividendYieldPct = parseNum(valueRaw); break; }
+    const pct = parseNum(valueRaw);
+    if(!isNaN(pct)) list.push({ label, pct });
+  }
+  return { list, dividendYieldPct };
+}
+
+function parseDividendTable(rows){
+  const markers = [];
+  for(let r=0;r<rows.length;r++){
+    const row = rows[r];
+    if(!row) continue;
+    for(let c=0;c<row.length;c++){
+      if((row[c]||"").toString().trim()==="날짜 (A)") markers.push({row:r, col:c});
+    }
+  }
+  if(markers.length===0) return null;
+  const groups = markers.map(m=>{
+    let label = "";
+    const aboveRow = rows[m.row-1] || [];
+    for(let cc=m.col; cc>=Math.max(0,m.col-1); cc--){
+      const t = (aboveRow[cc]||"").toString().trim();
+      if(t){ label = t; break; }
+    }
+    if(!label) label = "그룹";
+    const amountCols = [];
+    let cc = m.col+1;
+    while(cc < (rows[m.row]||[]).length){
+      const h = (rows[m.row][cc]||"").toString().trim();
+      if(h.includes("배당금")){ amountCols.push(cc); cc++; } else break;
+    }
+    return { label, dateCol: m.col, amountCols, headerRow: m.row };
+  });
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  const monthly = {}; const allMonths = new Set();
+  groups.forEach(g=>{
+    monthly[g.label] = {};
+    for(let r=g.headerRow+1; r<Math.min(rows.length, g.headerRow+60); r++){
+      const row = rows[r]; if(!row) continue;
+      const dateVal = (row[g.dateCol]||"").toString().trim();
+      if(!dateRe.test(dateVal)) continue;
+      const month = dateVal.slice(0,7);
+      let sum = 0;
+      g.amountCols.forEach(ci => { const n = parseNum(row[ci]); if(!isNaN(n)) sum += n; });
+      monthly[g.label][month] = (monthly[g.label][month]||0) + sum;
+      allMonths.add(month);
+    }
+  });
+  const months = Array.from(allMonths).sort();
+  return { groups: groups.map(g=>g.label), monthly, months };
+}
+function formatMonthLabel(m){ const [y,mo] = m.split("-"); return (parseInt(y)%100) + "년 " + parseInt(mo) + "월"; }
+
+function parseTriPod(rows){
+  let sigRow=-1, sigCol=-1, trendRow=-1, trendCol=-1;
+  for(let r=0;r<rows.length;r++){
+    const row = rows[r];
+    if(!row) continue;
+    for(let c=0;c<row.length;c++){
+      const t = (row[c]||"").toString().trim();
+      if(t==="최종 매매 신호" && sigRow===-1){ sigRow=r; sigCol=c; }
+      if(t==="추세 판정" && trendRow===-1){ trendRow=r; trendCol=c; }
+    }
+  }
+  if(sigRow===-1) return null;
+  const signal = ((rows[sigRow+1]||[])[sigCol]||"").toString().trim();
+  const trend = trendRow!==-1 ? ((rows[trendRow+1]||[])[trendCol]||"").toString().trim() : "";
+  if(!signal) return null;
+  return { signal, trend };
+}
+function tripodColor(signal){
+  if(signal.includes("TQQQ")) return "#E5484D";
+  if(signal.includes("QQQ") && signal.includes("QLD")) return "#D08B47";
+  if(signal.includes("현금")) return "#4C8DFF";
+  return "#8a93a3";
+}
+
+function parseSheet(rows){
+  let fxRate = 1377;
+  for(const row of rows){
+    for(let i=0;i<row.length;i++){
+      if((row[i]||"").toString().trim()==="기준환율 ($1)") fxRate = parseNum(row[i+1]);
+    }
+  }
+
+  const sections = [];
+  let current = null;
+
+  for(const row of rows){
+    const c0 = (row[0]||"").toString().trim();
+    const c1 = (row[1]||"").toString().trim();
+    const c2 = (row[2]||"").toString().trim();
+    const c7 = (row[7]||"").toString().trim();
+    const c8 = (row[8]||"").toString().trim();
+
+    // 계좌 블록 시작 (예: "M ISA 계좌(26.2월 시작)")
+    if(c0 !== "" && c1 === "" && isNaN(parseFloat(c0))){
+      const title = cleanTitle(c0);
+      if(ALLOWED_TITLES.includes(title)){
+        current = { title, holdings: [], cashKRW: NaN, principalKRW: NaN, totalEvalKRW: NaN, totalGainKRW: NaN, totalPct: NaN, monthlyDivKRW: NaN };
+        sections.push(current);
+      } else {
+        current = null; // 관심 없는 블록(요약/중복 표, 장모님·부모님 등)은 건너뜀
+      }
+      continue;
+    }
+    if(!current) continue;
+    if(c1 === "종목명") continue; // 열 헤더 줄
+    if(c1 === "예수금"){ current.cashKRW = toKRW(row[8], fxRate); continue; }
+    if(c7 === "원금"){ current.principalKRW = toKRW(row[8], fxRate); continue; }
+    if(c7 === "현재평가액"){
+      current.totalEvalKRW = toKRW(row[8], fxRate);
+      current.totalGainKRW = toKRW(row[9], fxRate);
+      current.totalPct = parseNum(row[10]);
+      current.monthlyDivKRW = toKRW(row[11], fxRate);
+      continue;
+    }
+    if(c1 !== "" && (c2 !== "" || c8 !== "")){
+      current.holdings.push({
+        name: c1,
+        code: c2,
+        curPriceRaw: row[3],
+        qty: parseNum(row[4]),
+        gainKRW: toKRW(row[6], fxRate),
+        returnPct: parseNum(row[7]),
+        evalKRW: toKRW(row[8], fxRate),
+      });
+    }
+  }
+
+  const cleaned = sections.filter(s => s.holdings.length > 0 || !isNaN(s.totalEvalKRW));
+  if(cleaned.length === 0) throw new Error("계좌 데이터를 찾지 못했어요.");
+  // 원금/총자산이 비어있으면 보유종목+예수금으로 보정
+  cleaned.forEach(s => {
+    const holdingsSum = s.holdings.reduce((a,h)=> a + (isNaN(h.evalKRW)?0:h.evalKRW), 0);
+    const cash = isNaN(s.cashKRW) ? 0 : s.cashKRW;
+    if(isNaN(s.totalEvalKRW)) s.totalEvalKRW = holdingsSum + cash;
+  });
+  return cleaned;
+}
+
+/* ====== 상태 & 렌더링 ====== */
+const state = { sections: [], sector: null, dividends: null, tripod: null, error: null, lastSync: null, loading: true, expanded: {} };
+let chartInstance = null;
+
+function toggleSection(title){ state.expanded[title] = !state.expanded[title]; render(); }
+
+function requestTripodNotif(){
+  if(typeof Notification === "undefined"){
+    alert("이 브라우저에서는 알림 기능을 지원하지 않아요.");
+    return;
+  }
+  Notification.requestPermission().then(p => {
+    if(p === "granted") new Notification("알림이 켜졌어요", { body: "신호가 바뀌면 앱을 열 때 알려드릴게요." });
+    else alert("알림 권한이 꺼져있어요. 브라우저/기기 설정에서 알림을 허용해주세요.");
+  });
+}
+
+function load(){
+  state.loading = true; state.error = null; render();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  fetch(SHEET_URL, {cache:"no-store", signal: controller.signal})
+    .then(r => { clearTimeout(timeoutId); if(!r.ok) throw new Error("네트워크 오류"); return r.text(); })
+    .then(text => {
+      const results = Papa.parse(text.trim());
+      const parsed = parseSheet(results.data);
+      state.sections = parsed;
+      try { state.sector = parseSectorTable(results.data); } catch(e) { console.error("섹터 표 파싱 실패", e); state.sector = null; }
+      try { state.dividends = parseDividendTable(results.data); } catch(e) { console.error("분배금 표 파싱 실패", e); state.dividends = null; }
+      try {
+        state.tripod = parseTriPod(results.data);
+        if(state.tripod){
+          const prev = localStorage.getItem("tripod-last-signal");
+          state.tripodChanged = prev !== null && prev !== state.tripod.signal;
+          localStorage.setItem("tripod-last-signal", state.tripod.signal);
+          if(state.tripodChanged && typeof Notification !== "undefined" && Notification.permission === "granted"){
+            try { new Notification("트라이팟 신호 변경", { body: prev + " → " + state.tripod.signal }); } catch(e){}
+          }
+        }
+      } catch(e) { console.error("트라이팟 파싱 실패", e); state.tripod = null; }
+      if(Object.keys(state.expanded).length===0 && parsed[0]) state.expanded[parsed[0].title] = true;
+      state.lastSync = new Date();
+      state.loading = false;
+      render();
+    })
+    .catch(err => {
+      clearTimeout(timeoutId);
+      const msg = err.name === "AbortError" ? "시간이 너무 오래 걸려서 중단했어요. 인터넷 연결을 확인하고 새로고침해주세요." : err.message;
+      state.error = '시트를 불러오지 못했어요. 인터넷 연결과 시트의 "웹에 게시" 상태를 확인해주세요. (' + msg + ')';
+      state.loading = false;
+      render();
+    });
+}
+
+function render(){
+  const app = document.getElementById("app");
+
+  const grandTotal = state.sections.reduce((s,sec)=> s + (isNaN(sec.totalEvalKRW)?0:sec.totalEvalKRW), 0);
+  const grandPrincipal = state.sections.reduce((s,sec)=> s + (isNaN(sec.principalKRW)?0:sec.principalKRW), 0);
+  const grandGainKnown = state.sections.some(sec=>!isNaN(sec.totalGainKRW));
+  const grandGain = state.sections.reduce((s,sec)=> s + (isNaN(sec.totalGainKRW)?0:sec.totalGainKRW), 0);
+  const grandPct = grandPrincipal > 0 ? (grandGain/grandPrincipal)*100 : NaN;
+  const grandDiv = state.sections.reduce((s,sec)=> s + (isNaN(sec.monthlyDivKRW)?0:sec.monthlyDivKRW), 0);
+
+  let html = "";
+  html += `<div class="header">
+    <div class="brandRow">
+      <div class="seal">M</div>
+      <div><h1>포트폴리오 현황</h1><p class="subtitle">공개용 · 수익률만 표시 (금액 비공개)</p></div>
+    </div>
+    <button class="refreshBtn" onclick="load()">${state.loading ? "불러오는 중…" : "새로고침"}</button>
+  </div>`;
+
+  if(state.error){
+    html += `<div class="errorBox"><strong>문제가 발생했어요.</strong><div style="margin-top:4px">${escapeHtml(state.error)}</div></div>`;
+  }
+
+  if(!state.error && state.sections.length>0){
+    html += `<div class="heroCard">
+      <div class="heroLabel">전체 수익률</div>
+      <div class="heroValue mono" style="color:${grandPct>0?'#E5484D':grandPct<0?'#4C8DFF':'#F2F0EA'}">${fmtPct(grandPct)}</div>
+      ${state.lastSync ? `<div class="syncTime">마지막 동기화 ${state.lastSync.toLocaleString("ko-KR")}</div>` : ""}
+
+      ${state.sector && !isNaN(state.sector.dividendYieldPct) ? `<div class="statRow"><div class="statChip"><div class="statLabel">전체 배당률</div><div class="statValue mono">${fmtPct(state.sector.dividendYieldPct)}</div></div></div>` : ""}
+
+      <div class="heroLabel" style="margin-top:18px;margin-bottom:4px">계좌 비중</div>
+      <div class="compBar">
+        ${state.sections.map((s,i)=>{ const pct = grandTotal>0 ? (s.totalEvalKRW/grandTotal)*100 : 0; return `<div style="width:${pct}%;background:${PALETTE[i%PALETTE.length]};height:100%" title="${escapeHtml(s.title)}"></div>`; }).join("")}
+      </div>
+      <div class="legendRow">
+        ${state.sections.map((s,i)=>{ const pct = grandTotal>0 ? (s.totalEvalKRW/grandTotal)*100 : 0; return `<div class="legendItem"><span class="legendDot" style="background:${PALETTE[i%PALETTE.length]}"></span><span class="legendLabel">${escapeHtml(s.title)}</span><span class="legendPct mono">${pct.toFixed(1)}%</span></div>`; }).join("")}
+      </div>
+    </div>`;
+
+    if(state.sector && state.sector.list.length > 0){
+      html += `<div class="heroCard">
+        <div class="heroLabel" style="margin-bottom:14px">섹터 비중</div>
+        ${state.sector.list.map((s,i)=> `
+          <div style="display:flex;align-items:center;gap:10px;margin-top:${i===0?0:10}px">
+            <div style="width:88px;flex-shrink:0;font-size:12.5px;color:#c7cdd6">${escapeHtml(s.label)}</div>
+            <div style="flex:1;height:8px;background:#262d38;border-radius:4px;overflow:hidden">
+              <div style="width:${Math.min(s.pct,100)}%;height:100%;background:${PALETTE[i%PALETTE.length]}"></div>
+            </div>
+            <div style="width:54px;flex-shrink:0;text-align:right;font-size:12.5px" class="mono">${s.pct.toFixed(2)}%</div>
+          </div>`).join("")}
+      </div>`;
+    }
+
+    if(state.tripod){
+      const color = tripodColor(state.tripod.signal);
+      html += `<div class="heroCard" style="padding:16px 22px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div>
+            <div class="heroLabel">트라이팟 신호${state.tripod.trend ? ` <span style="color:#5f6773">· 추세 ${escapeHtml(state.tripod.trend)}</span>` : ""}</div>
+            <div class="mono" style="font-size:20px;font-weight:800;color:${color};margin-top:4px">${escapeHtml(state.tripod.signal)}</div>
+          </div>
+          ${state.tripodChanged ? `<div style="background:#2a2417;border:1px solid #5c4a2a;color:#f2dcae;font-size:11px;padding:4px 10px;border-radius:999px">방금 신호가 바뀌었어요</div>` : ""}
+        </div>
+      </div>`;
+    }
+
+    state.sections.forEach((sec, si)=>{
+      const isOpen = !!state.expanded[sec.title];
+      html += `<div class="sectionCard">
+        <button class="sectionHeader" onclick="toggleSection('${sec.title.replace(/'/g,"\\'")}')">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="sectionDot" style="background:${PALETTE[si%PALETTE.length]}"></span>
+            <span class="sectionTitle">${escapeHtml(sec.title)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="text-align:right">
+              <div class="sectionTotal mono" style="color:${sec.totalGainKRW>0?'#E5484D':sec.totalGainKRW<0?'#4C8DFF':'#F2F0EA'}">${fmtPct(sec.totalPct)}</div>
+            </div>
+            <span class="chev" style="transform:${isOpen?'rotate(180deg)':'none'}">▾</span>
+          </div>
+        </button>`;
+
+      if(isOpen && sec.holdings.length > 0){
+        html += `<div class="tableWrap"><table class="holdingsTable"><thead><tr>
+            <th>종목</th><th>수익률</th>
+          </tr></thead><tbody>`;
+        sec.holdings.forEach(h=>{
+          const retColor = isNaN(h.returnPct) ? "#8a93a3" : h.returnPct>0 ? "#E5484D" : h.returnPct<0 ? "#4C8DFF" : "#8a93a3";
+          html += `<tr>
+              <td><div class="cell-name">${escapeHtml(h.name)}</div></td>
+              <td class="cell-return mono" style="color:${retColor};font-weight:600">${fmtPct(h.returnPct)}</td>
+            </tr>`;
+        });
+        html += `</tbody></table></div>`;
+      }
+      html += `</div>`;
+    });
+  } else if(!state.error && state.loading){
+    html += `<div class="emptyBox">불러오는 중…</div>`;
+  }
+
+  app.innerHTML = html;
+}
+
+load();
+</script>
+</body>
+</html>
