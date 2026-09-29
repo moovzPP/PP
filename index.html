@@ -3,16 +3,17 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>포트폴리오 (공개용)</title>
-<link rel="manifest" href="manifest-share.json" />
+<title>포트폴리오 현황</title>
+<link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon.png" />
 <link rel="apple-touch-icon" href="icon-180.png" />
 <meta name="theme-color" content="#12161d" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="포트폴리오(공개)" />
+<meta name="apple-mobile-web-app-title" content="포트폴리오" />
 <meta name="mobile-web-app-capable" content="yes" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -340,7 +341,7 @@ function render(){
   html += `<div class="header">
     <div class="brandRow">
       <div class="seal">M</div>
-      <div><h1>포트폴리오 현황</h1><p class="subtitle">공개용 · 수익률만 표시 (금액 비공개)</p></div>
+      <div><h1>포트폴리오 현황</h1><p class="subtitle">미래에셋 통합 계좌 · 구글시트 자동 연동</p></div>
     </div>
     <button class="refreshBtn" onclick="load()">${state.loading ? "불러오는 중…" : "새로고침"}</button>
   </div>`;
@@ -351,13 +352,18 @@ function render(){
 
   if(!state.error && state.sections.length>0){
     html += `<div class="heroCard">
-      <div class="heroLabel">전체 수익률</div>
-      <div class="heroValue mono" style="color:${grandPct>0?'#E5484D':grandPct<0?'#4C8DFF':'#F2F0EA'}">${fmtPct(grandPct)}</div>
+      <div class="heroLabel">총 평가금액 (원화 환산)</div>
+      <div class="heroValue mono">${fmtKRW(grandTotal)}</div>
       ${state.lastSync ? `<div class="syncTime">마지막 동기화 ${state.lastSync.toLocaleString("ko-KR")}</div>` : ""}
 
-      ${state.sector && !isNaN(state.sector.dividendYieldPct) ? `<div class="statRow"><div class="statChip"><div class="statLabel">전체 배당률</div><div class="statValue mono">${fmtPct(state.sector.dividendYieldPct)}</div></div></div>` : ""}
+      <div class="statRow">
+        <div class="statChip"><div class="statLabel">투자원금</div><div class="statValue mono">${fmtKRW(grandPrincipal)}</div></div>
+        <div class="statChip"><div class="statLabel">평가손익</div><div class="statValue mono" style="color:${grandGain>0?'#E5484D':grandGain<0?'#4C8DFF':'#F2F0EA'}">${grandGainKnown?fmtSignedKRW(grandGain):"-"}</div></div>
+        <div class="statChip"><div class="statLabel">수익률</div><div class="statValue mono" style="color:${grandPct>0?'#E5484D':grandPct<0?'#4C8DFF':'#F2F0EA'}">${fmtPct(grandPct)}</div></div>
+        <div class="statChip"><div class="statLabel">예상 월배당</div><div class="statValue mono">${fmtKRW(grandDiv)}</div></div>
+        ${state.sector && !isNaN(state.sector.dividendYieldPct) ? `<div class="statChip"><div class="statLabel">전체 배당률</div><div class="statValue mono">${fmtPct(state.sector.dividendYieldPct)}</div></div>` : ""}
+      </div>
 
-      <div class="heroLabel" style="margin-top:18px;margin-bottom:4px">계좌 비중</div>
       <div class="compBar">
         ${state.sections.map((s,i)=>{ const pct = grandTotal>0 ? (s.totalEvalKRW/grandTotal)*100 : 0; return `<div style="width:${pct}%;background:${PALETTE[i%PALETTE.length]};height:100%" title="${escapeHtml(s.title)}"></div>`; }).join("")}
       </div>
@@ -389,7 +395,36 @@ function render(){
             <div class="mono" style="font-size:20px;font-weight:800;color:${color};margin-top:4px">${escapeHtml(state.tripod.signal)}</div>
           </div>
           ${state.tripodChanged ? `<div style="background:#2a2417;border:1px solid #5c4a2a;color:#f2dcae;font-size:11px;padding:4px 10px;border-radius:999px">방금 신호가 바뀌었어요</div>` : ""}
+          <button onclick="requestTripodNotif()" style="background:#12161d;border:1px solid #2A313C;color:#8a93a3;padding:6px 12px;border-radius:8px;font-size:11px;cursor:pointer">🔔 알림 켜기</button>
         </div>
+      </div>`;
+    }
+
+    if(state.dividends && state.dividends.months.length > 0){
+      const groups = state.dividends.groups;
+      const monthly = state.dividends.monthly;
+      const months = state.dividends.months;
+      const grandTotalDiv = months.reduce((s,m)=> s + groups.reduce((ss,g)=> ss + (monthly[g][m]||0), 0), 0);
+      html += `<div class="heroCard">
+        <div class="heroLabel" style="margin-bottom:14px">월별 실수령 분배금</div>
+        <div id="divChartWrap" style="height:220px;margin-bottom:20px;display:flex;align-items:center;justify-content:center;color:#5f6773;font-size:12px">그래프 준비 중…</div>
+        <div class="tableWrap"><table class="divTable"><thead><tr>
+          <th>월</th>${groups.map(g=>`<th class="divGroupCol">${escapeHtml(g)}</th>`).join("")}<th>합계</th>
+        </tr></thead><tbody>
+          ${months.map(m=>{
+            const rowTotal = groups.reduce((s,g)=> s + (monthly[g][m]||0), 0);
+            return `<tr>
+              <td class="mono" style="font-weight:600">${formatMonthLabel(m)}</td>
+              ${groups.map(g=> `<td class="mono divGroupCol">${fmtKRW(monthly[g][m]||0)}</td>`).join("")}
+              <td class="mono" style="font-weight:700;color:#C9A227">${fmtKRW(rowTotal)}</td>
+            </tr>`;
+          }).join("")}
+          <tr>
+            <td class="mono" style="font-weight:700">합계</td>
+            ${groups.map(g=> `<td class="mono divGroupCol" style="font-weight:700">${fmtKRW(months.reduce((s,m)=> s+(monthly[g][m]||0),0))}</td>`).join("")}
+            <td class="mono" style="font-weight:800;color:#C9A227">${fmtKRW(grandTotalDiv)}</td>
+          </tr>
+        </tbody></table></div>
       </div>`;
     }
 
@@ -403,24 +438,38 @@ function render(){
           </div>
           <div style="display:flex;align-items:center;gap:14px">
             <div style="text-align:right">
-              <div class="sectionTotal mono" style="color:${sec.totalGainKRW>0?'#E5484D':sec.totalGainKRW<0?'#4C8DFF':'#F2F0EA'}">${fmtPct(sec.totalPct)}</div>
+              <div class="sectionTotal mono">${fmtKRW(sec.totalEvalKRW)}</div>
+              <div class="sectionSub mono">${!isNaN(sec.totalGainKRW)?`${fmtSignedKRW(sec.totalGainKRW)} (${fmtPct(sec.totalPct)})`:""}</div>
             </div>
             <span class="chev" style="transform:${isOpen?'rotate(180deg)':'none'}">▾</span>
           </div>
         </button>`;
 
-      if(isOpen && sec.holdings.length > 0){
-        html += `<div class="tableWrap"><table class="holdingsTable"><thead><tr>
-            <th>종목</th><th>수익률</th>
+      if(isOpen){
+        html += `<div class="sectionDetail">
+          <div class="miniChip"><div class="miniLabel">원금</div><div class="miniValue">${fmtKRW(sec.principalKRW)}</div></div>
+          <div class="miniChip"><div class="miniLabel">예수금</div><div class="miniValue">${fmtKRW(sec.cashKRW)}</div></div>
+          <div class="miniChip"><div class="miniLabel">평가손익</div><div class="miniValue" style="color:${sec.totalGainKRW>0?'#E5484D':sec.totalGainKRW<0?'#4C8DFF':'#F2F0EA'}">${fmtSignedKRW(sec.totalGainKRW)}</div></div>
+          <div class="miniChip"><div class="miniLabel">예상 월배당</div><div class="miniValue">${fmtKRW(sec.monthlyDivKRW)}</div></div>
+        </div>`;
+
+        if(sec.holdings.length > 0){
+          html += `<div class="tableWrap"><table class="holdingsTable"><thead><tr>
+            <th>종목</th><th>보유량</th><th>현재가</th><th>평가금액</th><th>평가손익</th><th>수익률</th>
           </tr></thead><tbody>`;
-        sec.holdings.forEach(h=>{
-          const retColor = isNaN(h.returnPct) ? "#8a93a3" : h.returnPct>0 ? "#E5484D" : h.returnPct<0 ? "#4C8DFF" : "#8a93a3";
-          html += `<tr>
-              <td><div class="cell-name">${escapeHtml(h.name)}</div></td>
+          sec.holdings.forEach(h=>{
+            const retColor = isNaN(h.returnPct) ? "#8a93a3" : h.returnPct>0 ? "#E5484D" : h.returnPct<0 ? "#4C8DFF" : "#8a93a3";
+            html += `<tr>
+              <td><div class="cell-name">${escapeHtml(h.name)}</div>${h.code?`<div class="cell-sub">${escapeHtml(h.code)}</div>`:""}</td>
+              <td class="cell-hide-mobile mono">${isNaN(h.qty)?"-":h.qty.toLocaleString("ko-KR")}</td>
+              <td class="cell-hide-mobile mono">${fmtPrice(h.curPriceRaw)}</td>
+              <td class="cell-eval mono">${fmtKRW(h.evalKRW)}</td>
+              <td class="cell-hide-mobile mono" style="color:${retColor}">${fmtSignedKRW(h.gainKRW)}</td>
               <td class="cell-return mono" style="color:${retColor};font-weight:600">${fmtPct(h.returnPct)}</td>
             </tr>`;
-        });
-        html += `</tbody></table></div>`;
+          });
+          html += `</tbody></table></div>`;
+        }
       }
       html += `</div>`;
     });
@@ -429,6 +478,48 @@ function render(){
   }
 
   app.innerHTML = html;
+
+  const chartWrap = document.getElementById("divChartWrap");
+  if(chartWrap && state.dividends && state.dividends.months.length > 0){
+    if(typeof Chart === "undefined"){
+      chartWrap.innerHTML = '<div style="color:#f2c9cc;font-size:12px;text-align:center;padding:0 12px">그래프 라이브러리(Chart.js)를 불러오지 못했어요.<br>인터넷 연결을 확인하고 새로고침해보세요.</div>';
+    } else {
+      chartWrap.innerHTML = '<canvas id="divChart"></canvas>';
+      const canvas = document.getElementById("divChart");
+      try {
+        const { groups, monthly, months } = state.dividends;
+        const totals = months.map(m => Math.round(groups.reduce((s,g) => s + (monthly[g][m]||0), 0)));
+        if(chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(canvas.getContext("2d"), {
+          type: "bar",
+          data: {
+            labels: months.map(formatMonthLabel),
+            datasets: [{
+              label: "합계",
+              data: totals,
+              backgroundColor: "#C9A227",
+              borderRadius: 4,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { ticks: { color: "#8a93a3", font: { size: 11 } }, grid: { color: "#232a34" } },
+              y: { ticks: { color: "#8a93a3", font: { size: 10 }, callback: v => (v/10000).toLocaleString() + "만" }, grid: { color: "#232a34" } },
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { title: ctx => ctx[0].label, label: ctx => "합계 " + fmtKRW(ctx.parsed.y) } },
+            },
+          },
+        });
+      } catch(e) {
+        console.error("차트 생성 실패", e);
+        chartWrap.innerHTML = '<div style="color:#f2c9cc;font-size:12px;text-align:center;padding:0 12px">그래프 생성 중 오류: ' + escapeHtml(e.message) + '</div>';
+      }
+    }
+  }
 }
 
 load();
