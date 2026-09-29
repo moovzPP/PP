@@ -4,13 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>포트폴리오 (공개용)</title>
-<link rel="manifest" href="manifest.json" />
+<link rel="manifest" href="manifest-share.json" />
 <link rel="icon" href="icon.png" />
 <link rel="apple-touch-icon" href="icon-180.png" />
 <meta name="theme-color" content="#12161d" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="포트폴리오" />
+<meta name="apple-mobile-web-app-title" content="포트폴리오(공개)" />
 <meta name="mobile-web-app-capable" content="yes" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
@@ -84,7 +84,18 @@
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqQ2wCVzGTlE9xikvz8l7p-cyuk1JoCy67AN3XRfHbl9-sjMHnVwoJYt222119oKmRyf84ecmGZDxE/pub?gid=1535118736&single=true&output=csv";
 
 const PALETTE = ["#C9A227","#6C8EBF","#8E7CC3","#4FB286","#D08B47","#5AA9C9","#B4658A","#7F9E3B"];
-const ALLOWED_TITLES = ["M ISA 계좌", "W ISA 계좌", "M 직투", "M 직투 - 무한매수법", "M 직투 - 밸류리밸런싱(VR)", "W 직투", "M 연저펀", "W 연저펀"];
+function classifyTitle(title){
+  if(title.includes("종합") || title.includes("장모님") || title.includes("부모님")) return null;
+  if(title.includes("무한매수법")) return "M 직투 - 무한매수법";
+  if(title.includes("밸류리밸런싱")) return "M 직투 - 밸류리밸런싱(VR)";
+  if(title.includes("M") && title.includes("ISA")) return "M ISA 계좌";
+  if(title.includes("W") && title.includes("ISA")) return "W ISA 계좌";
+  if(title.includes("W") && title.includes("직투")) return "W 직투";
+  if(title.includes("M") && title.includes("직투")) return "M 직투";
+  if(title.includes("M") && (title.includes("연저펀") || title.includes("연금"))) return "M 연저펀";
+  if(title.includes("W") && (title.includes("연저펀") || title.includes("연금"))) return "W 연저펀";
+  return null; // 그 외(장모님, 부모님, M,W종합 등)는 제외
+}
 
 function parseNum(raw){
   if(raw===undefined||raw===null) return NaN;
@@ -216,8 +227,9 @@ function parseSheet(rows){
 
     // 계좌 블록 시작 (예: "M ISA 계좌(26.2월 시작)")
     if(c0 !== "" && c1 === "" && isNaN(parseFloat(c0))){
-      const title = cleanTitle(c0);
-      if(ALLOWED_TITLES.includes(title)){
+      const rawTitle = cleanTitle(c0);
+      const title = classifyTitle(rawTitle);
+      if(title){
         current = { title, holdings: [], cashKRW: NaN, principalKRW: NaN, totalEvalKRW: NaN, totalGainKRW: NaN, totalPct: NaN, monthlyDivKRW: NaN };
         sections.push(current);
       } else {
